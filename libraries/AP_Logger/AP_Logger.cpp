@@ -250,7 +250,7 @@ const char* AP_Logger::unit_name(const uint8_t unit_id)
             return _units[i].unit;
         }
     }
-    return NULL;
+    return nullptr;
 }
 
 /// return a multiplier value given its ID
@@ -1408,6 +1408,7 @@ void AP_Logger::log_file_content(const char *filename)
     const size_t len = strlen(filename)+1;
     char * tmp_filename = new char[len];
     if (tmp_filename == nullptr) {
+        delete file;
         return;
     }
     strncpy(tmp_filename, filename, len);

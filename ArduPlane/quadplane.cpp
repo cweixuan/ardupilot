@@ -727,7 +727,9 @@ bool QuadPlane::setup(void)
     // param count will have changed
     AP_Param::invalidate_count();
 
-    gcs().send_text(MAV_SEVERITY_INFO, "QuadPlane initialised, class: %s, type: %s", motors->get_frame_string(), motors->get_type_string());
+    char frame_and_type_string[30];
+    motors->get_frame_and_type_string(frame_and_type_string, ARRAY_SIZE(frame_and_type_string));
+    gcs().send_text(MAV_SEVERITY_INFO, "QuadPlane initialised, %s", frame_and_type_string);
     initialised = true;
     return true;
 }
@@ -884,8 +886,15 @@ void QuadPlane::hold_stabilize(float throttle_in)
 // run the multicopter Z controller
 void QuadPlane::run_z_controller(void)
 {
+    if (motors->get_spool_state() != AP_Motors::SpoolState::THROTTLE_UNLIMITED ) {
+        return;
+    }
     const uint32_t now = AP_HAL::millis();
-    if (!pos_control->is_active_z()) {
+    if (tailsitter.in_vtol_transition(now)) {
+        // never run Z controller in tailsitter transtion
+        return;
+    }
+    if ((now - last_pidz_active_ms) > 20) {
         // set vertical speed and acceleration limits
         pos_control->set_max_speed_accel_z(-get_pilot_velocity_z_max_dn(), pilot_velocity_z_max_up, pilot_accel_z);
 
@@ -906,7 +915,7 @@ void QuadPlane::relax_attitude_control()
 {
     // disable roll and yaw control for vectored tailsitters
     // if not a vectored tailsitter completely disable attitude control
-    attitude_control->relax_attitude_controllers(tailsitter._is_vectored);
+    attitude_control->relax_attitude_controllers(!tailsitter.relax_pitch());
 }
 
 /*
@@ -1864,7 +1873,8 @@ void QuadPlane::motors_output(bool run_rate_controller)
         return;
     }
 
-    if (tailsitter.in_vtol_transition() && !assisted_flight) {
+    const uint32_t now = AP_HAL::millis();
+    if (tailsitter.in_vtol_transition(now) && !assisted_flight) {
         /*
           don't run the motor outputs while in tailsitter->vtol
           transition. That is taken care of by the fixed wing
@@ -1873,7 +1883,6 @@ void QuadPlane::motors_output(bool run_rate_controller)
         return;
     }
 
-    const uint32_t now = AP_HAL::millis();
     if (run_rate_controller) {
         if (now - last_att_control_ms > 100) {
             // relax if have been inactive
@@ -2319,7 +2328,7 @@ void QuadPlane::vtol_position_controller(void)
     case QPOS_POSITION1: {
         setup_target_position();
 
-        if (tailsitter.enabled() && tailsitter.in_vtol_transition()) {
+        if (tailsitter.enabled() && tailsitter.in_vtol_transition(now_ms)) {
             break;
         }
 
@@ -2357,17 +2366,23 @@ void QuadPlane::vtol_position_controller(void)
         // run fixed wing navigation
         plane.nav_controller->update_waypoint(plane.current_loc, loc);
 
-        Vector2f target_speed_xy;
+        Vector2f target_speed_xy_cms;
         if (distance > 0.1) {
-            target_speed_xy = diff_wp.normalized() * target_speed;
+            target_speed_xy_cms = diff_wp.normalized() * target_speed * 100;
         }
-        pos_control->set_vel_desired_xy_cms(target_speed_xy * 100);
+        if (!tailsitter.enabled()) {
+            // this method ignores pos-control velocity/accel limtis
+            pos_control->set_vel_desired_xy_cms(target_speed_xy_cms);
 
-        // reset position controller xy target to current position
-        // because we only want velocity control (no position control)
-        const Vector2f& curr_pos = inertial_nav.get_position_xy_cm();
-        pos_control->set_pos_target_xy_cm(curr_pos.x, curr_pos.y);
-        pos_control->set_accel_desired_xy_cmss(Vector2f());
+            // reset position controller xy target to current position
+            // because we only want velocity control (no position control)
+            const Vector2f& curr_pos = inertial_nav.get_position_xy_cm();
+            pos_control->set_pos_target_xy_cm(curr_pos.x, curr_pos.y);
+            pos_control->set_accel_desired_xy_cmss(Vector2f());
+        } else {
+            // tailsitters use input shaping and abide by velocity limits
+            pos_control->input_vel_accel_xy(target_speed_xy_cms, Vector2f());
+        }
 
         // run horizontal velocity controller
         run_xy_controller();
@@ -2488,7 +2503,7 @@ void QuadPlane::vtol_position_controller(void)
         }
         break;
     case QPOS_POSITION1:
-        if (tailsitter.in_vtol_transition()) {
+        if (tailsitter.in_vtol_transition(now_ms)) {
             pos_control->relax_z_controller(0);
             break;
         }
