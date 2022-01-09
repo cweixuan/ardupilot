@@ -84,8 +84,8 @@ public:
         case PPM:
         case FPORT:
         case FPORT2:
-	    case DBUS:
             return true;
+	    case DBUS:
         case IBUS:
         case SUMD:
         case SRXL:

@@ -86,9 +86,12 @@ AP_RCProtocol_DBUS::AP_RCProtocol_DBUS(AP_RCProtocol &_frontend, bool _inverted)
 bool AP_RCProtocol_DBUS::dbus_decode(const uint8_t frame[18], uint16_t *values, uint16_t *num_values,
                                      bool *dbus_failsafe, bool *dbus_frame_drop, uint16_t max_values)
 {
-    /* check frame boundary markers to avoid out-of-sync cases */
     uint16_t chancount = DBUS_INPUT_CHANNELS;
-
+    /* check frame boundary markers for SBUS signals but it shouldn't happen */
+        if ((frame[0]   == 0x0f)) {
+        return false;
+    }
+    
 	values[0] = ((int16_t)frame[0] | ((int16_t)frame[1] << 8)) & 0x07FF;
 	values[0] = uint16_t(0.758 * double(values[0]) + 624.242);
 	values[1] = (((int16_t)frame[1] >> 3) | ((int16_t)frame[2] << 5)) & 0x07FF;
@@ -160,6 +163,7 @@ void AP_RCProtocol_DBUS::_process_byte(uint32_t timestamp_us, uint8_t b)
                         {
             add_input(num_values, values, dbus_failsafe);
         }
+        byte_input.ofs = 0;
     }
 }
 

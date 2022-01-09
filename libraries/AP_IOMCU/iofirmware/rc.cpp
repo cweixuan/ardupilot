@@ -37,6 +37,15 @@ static const SerialConfig sbus_cfg = {
     nullptr,  // ctx
 };
 
+static const SerialConfig dbus_cfg = {
+    100000,   // speed
+    USART_CR1_PCE | USART_CR1_M, // cr1, enable even parity
+    0,            // cr2, one stop bits
+    0,        // cr3
+    nullptr,  // irq_cb
+    nullptr,  // ctx
+};
+
 // listen for parity errors on sd3 input
 static event_listener_t sd3_listener;
 
@@ -67,13 +76,14 @@ static const SerialConfig dsm_cfg = {
 void AP_IOMCU_FW::rcin_serial_init(void)
 {
     sdStart(&SD1, &dsm_cfg);
-    sdStart(&SD3, &sbus_cfg);
+    sdStart(&SD3, &dbus_cfg);
     chEvtRegisterMaskWithFlags(chnGetEventSource(&SD3),
                                &sd3_listener,
                                EVENT_MASK(1),
                                SD_PARITY_ERROR);
     // disable input for SBUS with pulses, we will use the UART for
     // SBUS and FPORT
+    AP::RC().disable_for_pulses(AP_RCProtocol::DBUS);
     AP::RC().disable_for_pulses(AP_RCProtocol::SBUS);
     AP::RC().disable_for_pulses(AP_RCProtocol::SBUS_NI);
     AP::RC().disable_for_pulses(AP_RCProtocol::FPORT);
@@ -139,7 +149,7 @@ void AP_IOMCU_FW::rcin_serial_update(void)
         rc_stats.last_good_ms = now;
         sd3_config ^= 1;
         sdStop(&SD3);
-        sdStart(&SD3, sd3_config==0?&sbus_cfg:&dsm_cfg);
+        sdStart(&SD3, sd3_config==0?&dbus_cfg:&dsm_cfg);
     }
 }
 
