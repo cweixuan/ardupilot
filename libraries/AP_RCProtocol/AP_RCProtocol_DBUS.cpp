@@ -72,7 +72,7 @@
 #define DBUS_SCALE_OFFSET (DBUS_TARGET_MIN - ((DBUS_TARGET_RANGE * DBUS_RANGE_MIN / DBUS_RANGE_RANGE)))
 
 #ifndef HAL_DBUS_FRAME_GAP
-#define HAL_DBUS_FRAME_GAP 100U
+#define HAL_DBUS_FRAME_GAP 5000U
 #endif
 
 // constructor
@@ -85,31 +85,54 @@ AP_RCProtocol_DBUS::AP_RCProtocol_DBUS(AP_RCProtocol &_frontend, bool _inverted)
 // decode a full DBUS frame
 bool AP_RCProtocol_DBUS::dbus_decode(const uint8_t frame[18], uint16_t *values, uint16_t *num_values,
                                      bool *dbus_failsafe, bool *dbus_frame_drop, uint16_t max_values)
-{
-    uint16_t chancount = DBUS_INPUT_CHANNELS;
-    /* check frame boundary markers for SBUS signals but it shouldn't happen */
-        if ((frame[0]   == 0x0f)) {
+{      
+    //check if signal is SBUS instead
+     if ((frame[0] == 0x0f)) {
         return false;
     }
-    
-	values[0] = ((int16_t)frame[0] | ((int16_t)frame[1] << 8)) & 0x07FF;
-	values[0] = uint16_t(0.758 * double(values[0]) + 624.242);
-	values[1] = (((int16_t)frame[1] >> 3) | ((int16_t)frame[2] << 5)) & 0x07FF;
-	values[1] = uint16_t(0.758 * double(values[1]) + 624.242);
-	values[2] = (((int16_t)frame[2] >> 6) | ((int16_t)frame[3] << 2) |
+    uint16_t chancount = DBUS_INPUT_CHANNELS;
+	values[0] = ((int16_t)frame[0] | ((int16_t)frame[1] << 8)) & 0x07FF;    //pitch
+	values[0] = uint16_t(0.758 * double(values[0]) + 724.242);
+	values[1] = (((int16_t)frame[1] >> 3) | ((int16_t)frame[2] << 5)) & 0x07FF; //roll
+	values[1] = uint16_t(0.758 * double(values[1]) + 724.242);              
+
+	values[3] = (((int16_t)frame[2] >> 6) | ((int16_t)frame[3] << 2) |      //yaw
 		((int16_t)frame[4] << 10)) & 0x07FF;
-	values[2] = uint16_t(0.758 * double(values[2]) + 624.242);
-	values[3] = (((int16_t)frame[4] >> 1) | ((int16_t)frame[5] << 7)) & 0x07FF;
-	values[3] = uint16_t(0.758 * double(values[3]) + 624.242);
+	values[3] = uint16_t(0.758 * double(values[3]) + 724.242);
+
+	values[2] = (((int16_t)frame[4] >> 1) | ((int16_t)frame[5] << 7)) & 0x07FF; //throttle
+	values[2] = uint16_t(0.758 * double(values[2]) + 724.242);
 
 
 
 	values[4] = ((frame[5] >> 4) & 0x000C) >> 2;
-	values[4] =  500 * values[4] + 400;
+    switch(values[4])
+    {
+        case 1:
+            values[4] = 1000;
+            break;
+        case 3:
+            values[4] = 1500;
+            break;
+        case 2:
+            values[4] = 2000;
+    }
+    
 	values[5] = ((frame[5] >> 4) & 0x0003);
-	values[5] =  500 * values[5] + 400;	
+    switch(values[5])
+    {
+        case 1:
+            values[5] = 1000;
+            break;
+        case 3:
+            values[5] = 1500;
+            break;
+        case 2:
+            values[5] = 2000;
+    }
+
     values[6] = ((int16_t)frame[16]) | ((int16_t)frame[17] << 8);
-	values[6] = uint16_t(0.758 * double(values[6]) + 624.242);
+	values[6] = uint16_t(0.758 * double(values[6]) + 724.242);
     *num_values = chancount;
 
 
