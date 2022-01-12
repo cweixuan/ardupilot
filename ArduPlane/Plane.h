@@ -1048,7 +1048,6 @@ private:
     // sensors.cpp
     void read_rangefinder(void);
     void read_airspeed(void);
-    void rpm_update(void);
 
     // system.cpp
     void init_ardupilot() override;
@@ -1086,7 +1085,6 @@ private:
     void set_landing_gear(void);
     void dspoiler_update(void);
     void airbrake_update(void);
-    void servo_output_mixers(void);
     void landing_neutral_control_surface_servos(void);
     void servos_output(void);
     void servos_auto_trim(void);

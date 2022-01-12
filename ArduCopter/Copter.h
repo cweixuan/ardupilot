@@ -41,6 +41,7 @@
 #include <AP_InertialSensor/AP_InertialSensor.h>                // ArduPilot Mega Inertial Sensor (accel & gyro) Library
 #include <AP_AHRS/AP_AHRS.h>                                    // AHRS (Attitude Heading Reference System) interface library for ArduPilot
 #include <AP_Mission/AP_Mission.h>                              // Mission command library
+#include <AP_Mission/AP_Mission_ChangeDetector.h>               // Mission command change detection library
 #include <AC_AttitudeControl/AC_AttitudeControl_Multi.h>        // Attitude control library
 #include <AC_AttitudeControl/AC_AttitudeControl_Multi_6DoF.h>   // 6DoF Attitude control library
 #include <AC_AttitudeControl/AC_AttitudeControl_Heli.h>         // Attitude control library for traditional helicopter
@@ -861,7 +862,6 @@ private:
     void read_rangefinder(void);
     bool rangefinder_alt_ok() const;
     bool rangefinder_up_ok() const;
-    void rpm_update();
     void update_optical_flow(void);
     void compass_cal_update(void);
 
